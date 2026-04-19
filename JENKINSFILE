@@ -1,0 +1,36 @@
+pipeline {
+    agent any
+    
+     stages {
+        stage('Get Code') {
+            steps {
+                git 'https://github.com/pdejulian/calculadora.git'
+            }
+        }
+        stage('Build') {
+            steps {
+                echo 'Compilacion'
+            echo WORKSPACE
+            sh 'ls -lah'
+            }
+        }
+        stage('Unit') {
+            steps {
+                sh '''
+                    export PYTHONPATH="$WORKSPACE"
+                    pytest --junitxml=result-unit.xml test/unit
+                    '''
+            }
+        }
+        stage ('Rest') {
+            steps{
+                sh '''
+                    export FLASK_APP=app/api.py
+                    export FLASK_ENV=development
+                    pytest --junitxml=result-rest.xml test/rest
+                    '''
+            }
+        }
+        stage ('Results') {
+            steps {
+                junit 'result*.xml'
