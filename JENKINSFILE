@@ -2,18 +2,6 @@ pipeline {
     agent any
     
      stages {
-        stage('Get Code') {
-            steps {
-                git 'https://github.com/pdejulian/calculadora.git'
-            }
-        }
-        stage('Build') {
-            steps {
-                echo 'Compilacion'
-            echo WORKSPACE
-            sh 'ls -lah'
-            }
-        }
         stage('Unit') {
             steps {
                 sh '''
