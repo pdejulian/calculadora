@@ -3,8 +3,8 @@ pipeline {
     
      stages {
         stage('Unit') {
+            agent { label 'agent1' }
             steps {
-                echo WORKSPACE
                 sh '''
                     export PYTHONPATH="$WORKSPACE"
                     pytest --junitxml=result-unit.xml test/unit
