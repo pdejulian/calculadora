@@ -17,7 +17,7 @@ pipeline {
                     export FLASK_APP=app/api.py
                     export FLASK_ENV=development
                     pytest --junitxml=result-rest.xml test/rest
-                    sleep 5
+                    sleep 20
                     '''
             }
         }
