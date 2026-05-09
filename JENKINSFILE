@@ -17,6 +17,8 @@ pipeline {
                     export FLASK_APP=app/api.py
                     export FLASK_ENV=development
                     pytest --junitxml=result-rest.xml test/rest
+                    nohup python -m flask run --host=127.0.0.1 --port=5000 > flask.log 2>&1 &
+                    nohup /usr/bin/java -jar /opt/wiremock-standalone.jar --port 9090 --root-dir test/wiremock/ > wiremock.log 2>&1 &
                     sleep 20
                     '''
             }
