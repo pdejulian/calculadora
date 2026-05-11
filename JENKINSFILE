@@ -7,7 +7,7 @@ pipeline {
             steps {
                 sh '''
                     whoami && hostname && echo $WORKSPACE
-                    git url: 'https://github.com/pdejulian/calculadora'
+                    git 'https://github.com/pdejulian/calculadora'
                     export PYTHONPATH="$WORKSPACE"
                     pytest --junitxml=result-unit.xml test/unit
                     '''
@@ -18,7 +18,7 @@ pipeline {
             steps{
                 sh '''
                     whoami && hostname && echo $WORKSPACE
-                    git url: 'https://github.com/pdejulian/calculadora'
+                    git 'https://github.com/pdejulian/calculadora'
                     export FLASK_APP=app/api.py
                     export FLASK_ENV=development
                     nohup python3 -m flask --app app/api.py run &
