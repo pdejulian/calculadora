@@ -5,9 +5,9 @@ pipeline {
         stage('Unit') {
             agent { label 'agent1' }
             steps {
+                git url: 'https://github.com/pdejulian/calculadora.git'
                 sh '''
                     whoami && hostname && echo $WORKSPACE
-                    git 'https://github.com/pdejulian/calculadora.git'
                     export PYTHONPATH="$WORKSPACE"
                     pytest --junitxml=result-unit.xml test/unit
                     '''
@@ -16,9 +16,9 @@ pipeline {
         stage ('Rest') {
             agent { label 'agent2' }
             steps{
+                git url: 'https://github.com/pdejulian/calculadora.git'
                 sh '''
                     whoami && hostname && echo $WORKSPACE
-                    git 'https://github.com/pdejulian/calculadora.git'
                     export FLASK_APP=app/api.py
                     export FLASK_ENV=development
                     nohup python3 -m flask --app app/api.py run &
