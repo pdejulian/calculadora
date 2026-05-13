@@ -5,6 +5,7 @@ pipeline {
         stage('Checkout') {
             agent any
             steps {
+                sh 'echo "Descargando Git"'
                 git url: 'https://github.com/pdejulian/calculadora.git'
                 stash name: 'codigo', includes: '**/*'
             }
@@ -15,6 +16,7 @@ pipeline {
             steps {
                 unstash 'codigo'
                 sh '''
+                    echo "Lanzando Unit"
                     whoami && hostname && echo $WORKSPACE
                     export PYTHONPATH="$WORKSPACE"
                     pytest --junitxml=result-unit.xml test/unit
@@ -26,6 +28,7 @@ pipeline {
             agent { label 'agent1' }
             steps {
                 unstash 'codigo'
+                sh 'echo "Preparando Flake8"'
                 script {
                     def flake8Output = sh(
                         script: '''
@@ -60,6 +63,7 @@ pipeline {
             steps {
                 unstash 'codigo'
                 sh '''
+                    echo "Ejecutando Flask y Wiremock"
                     whoami && hostname && echo $WORKSPACE
                     export FLASK_APP=app/api.py
                     export FLASK_ENV=development
