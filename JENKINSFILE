@@ -1,22 +1,64 @@
 pipeline {
-    agent any
-    
-     stages {
+    agent none
+
+    stages {
+        stage('Checkout') {
+            agent any
+            steps {
+                git url: 'https://github.com/pdejulian/calculadora.git'
+                stash name: 'codigo', includes: '**/*'
+            }
+        }
+
         stage('Unit') {
             agent { label 'agent1' }
             steps {
-                git url: 'https://github.com/pdejulian/calculadora.git'
+                unstash 'codigo'
                 sh '''
                     whoami && hostname && echo $WORKSPACE
                     export PYTHONPATH="$WORKSPACE"
                     pytest --junitxml=result-unit.xml test/unit
-                    '''
+                '''
             }
         }
-        stage ('Rest') {
+
+        stage('Static') {
+            agent { label 'agent1' }
+            steps {
+                unstash 'codigo'
+                script {
+                    def flake8Output = sh(
+                        script: '''
+                            python3 -m flake8 app test --format="%(path)s:%(row)d:%(col)d: %(code)s %(text)s" || true
+                        ''',
+                        returnStdout: true
+                    ).trim()
+
+                    writeFile file: 'flake8.out', text: flake8Output
+
+                    def findings = flake8Output ? flake8Output.readLines().size() : 0
+
+                    echo "Flake8 findings: ${findings}"
+
+                    if (findings >= 10) {
+                        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                            error("Analisis estatico unhealthy: ${findings} findings")
+                        }
+                    } else if (findings >= 8) {
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            error("Analisis estatico unstable: ${findings} findings")
+                        }
+                    } else {
+                        echo "Analisis estatico OK: ${findings} findings"
+                    }
+                }
+            }
+        }
+
+        stage('Rest') {
             agent { label 'agent2' }
-            steps{
-                git url: 'https://github.com/pdejulian/calculadora.git'
+            steps {
+                unstash 'codigo'
                 sh '''
                     whoami && hostname && echo $WORKSPACE
                     export FLASK_APP=app/api.py
@@ -25,8 +67,8 @@ pipeline {
                     nohup /usr/bin/java -jar /opt/wiremock-standalone.jar --port 9090 --root-dir test/wiremock/ &
                     sleep 20
                     pytest --junitxml=result-rest.xml test/rest
-                    '''
+                '''
             }
         }
-     }
+    }
 }
