@@ -57,7 +57,34 @@ pipeline {
                 }
             }
         }
+        stage('Security') {
+            agent { label 'agent1' }
+            steps {
+                unstash 'codigo'
+                script {
+                    sh '''
+                        python3 -m bandit -r app || true
+                    '''
+                    def findings = sh(
+                        script: '''python3 -c "import json; print(len(json.load(open('bandit.json')).get('results', [])))"''',
+                        returnStdout: true
+                    ).trim().toInteger()
+                    echo "Bandit findings: ${findings}"
 
+            if (findings >= 4) {
+                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                    error("Analisis de seguridad unhealthy: ${findings} findings")
+                }
+            } else if (findings >= 2) {
+                catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                    error("Analisis de seguridad unstable: ${findings} findings")
+                }
+            } else {
+                echo "Analisis de seguridad OK: ${findings} findings"
+            }
+        }
+    }
+}
         stage('Rest') {
             agent { label 'agent2' }
             steps {
