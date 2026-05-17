@@ -5,6 +5,7 @@ pipeline {
         stage('Checkout') {
             agent any
             steps {
+                checkout scm
                 sh 'echo "Descargando Git"'
                 git url: 'https://github.com/pdejulian/calculadora.git'
                 stash name: 'codigo', includes: '**/*'
@@ -21,6 +22,7 @@ pipeline {
                     export PYTHONPATH="$WORKSPACE"
                     coverage run --branch -m pytest --junitxml=result-unit.xml test/unit
                     coverage xml -o coverage.xml
+                    ls -lah
                 '''
                 junit 'result-unit.xml'
             }
