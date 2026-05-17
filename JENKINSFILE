@@ -19,8 +19,10 @@ pipeline {
                     echo "Lanzando Unit"
                     whoami && hostname && echo $WORKSPACE
                     export PYTHONPATH="$WORKSPACE"
-                    pytest --junitxml=result-unit.xml test/unit
+                    coverage run --branch -m pytest --junitxml=result-unit.xml test/unit
+                    coverage xml -o coverage.xml
                 '''
+                junit 'result-unit.xml'
             }
         }
 
@@ -85,6 +87,26 @@ pipeline {
                 }
             }
         }
+        stage('Coverage') {
+            agent { label 'agent2' }
+            steps {
+                unstash 'codigo'
+                sh '''
+                echo "Publicando cobertura"
+                whoami && hostname && echo $WORKSPACE
+            '''
+            recordCoverage(
+                tools: [[parser: 'COBERTURA', pattern: 'coverage.xml']],
+                enabledForFailure: true,
+                qualityGates: [
+                    [metric: 'LINE', threshold: 85.0, baseline: 'PROJECT', unstable: false],
+                    [metric: 'LINE', threshold: 95.0, baseline: 'PROJECT', unstable: true],
+                    [metric: 'BRANCH', threshold: 80.0, baseline: 'PROJECT', unstable: false],
+                    [metric: 'BRANCH', threshold: 90.0, baseline: 'PROJECT', unstable: true]
+                ]
+            )
+        }
+    }
         stage('Rest') {
             agent { label 'agent2' }
             steps {
