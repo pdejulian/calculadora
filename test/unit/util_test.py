@@ -23,5 +23,18 @@ class TestUtil(unittest.TestCase):
         self.assertRaises(TypeError, util.convert_to_number, None)
         self.assertRaises(TypeError, util.convert_to_number, object())
 
+    def test_convert_to_number_returns_int_when_no_decimal_point(self):
+        self.assertEqual(4, util.convert_to_number("4"))
+        self.assertEqual(-1, util.convert_to_number("-1"))
+
+    def test_convert_to_number_returns_float_when_decimal_point_exists(self):
+        self.assertEqual(4.0, util.convert_to_number("4.0"))
+        self.assertEqual(-1.0, util.convert_to_number("-1.0"))
+
+    def test_convert_to_number_invalid_string_raises_type_error(self):
+        self.assertRaises(TypeError, util.convert_to_number, "")
+        self.assertRaises(TypeError, util.convert_to_number, "3.h")
+        self.assertRaises(TypeError, util.convert_to_number, "s")
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
