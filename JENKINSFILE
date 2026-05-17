@@ -22,7 +22,6 @@ pipeline {
                     export PYTHONPATH="$WORKSPACE"
                     coverage run --branch -m pytest --junitxml=result-unit.xml test/unit
                     coverage xml -o coverage.xml
-                    ls -lah
                 '''
                 junit 'result-unit.xml'
             }
