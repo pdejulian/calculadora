@@ -5,19 +5,19 @@ pipeline {
         stage('Checkout') {
             agent any
             steps {
-                checkout scm
                 sh 'echo "Descargando Git"'
                 git url: 'https://github.com/pdejulian/calculadora.git'
                 stash name: 'codigo', includes: '**/*'
             }
         }
-
+        stage('Test y Analisis') {
+            parallel {
         stage('Unit') {
-            agent { label 'agent1' }
+            agent { label 'agent2' }
             steps {
                 unstash 'codigo'
                 sh '''
-                    echo "Lanzando Unit"
+                    echo "Lanzando Unit y generando reportes JUnit y Coverage"
                     whoami && hostname && echo $WORKSPACE
                     export PYTHONPATH="$WORKSPACE"
                     coverage run --branch -m pytest --junitxml=result-unit.xml test/unit
@@ -58,7 +58,7 @@ pipeline {
                         echo "Analisis estatico OK: ${findings} findings"
                     }
                 }
-            }
+            } 
         }
         stage('Security') {
             agent { label 'agent1' }
@@ -66,7 +66,7 @@ pipeline {
                 unstash 'codigo'
                 script {
                     sh '''
-                        python3 -m bandit -r app  -f json -o bandit.json -q || true
+                        python3 -m bandit -r app || true
                     '''
                     def findings = sh(
                         script: '''python3 -c "import json; print(len(json.load(open('bandit.json')).get('results', [])))"''',
@@ -76,11 +76,11 @@ pipeline {
 
                     if (findings >= 4) {
                         catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-                    error("Analisis de seguridad unhealthy: ${findings} findings")
+                            error("Analisis de seguridad unhealthy: ${findings} findings")
                         }
                     } else if (findings >= 2) {
                         catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
-                            error("Analisis de seguridad unstable: ${findings} findings")
+                        error("Analisis de seguridad unstable: ${findings} findings")
                         }
                     } else {
                         echo "Analisis de seguridad OK: ${findings} findings"
@@ -88,7 +88,68 @@ pipeline {
                 }
             }
         }
-        stage('Coverage') {
+        stage('Performance') {
+            agent { label 'agent2' }
+            steps {
+                unstash 'codigo'
+                sh '''
+                    echo "Preparando Flask"
+                    whoami && hostname && echo $WORKSPACE
+                    export PYTHONPATH="$WORKSPACE"
+                    nohup python3 -m flask --app app/api.py run &
+                    echo "Esperando a Flask"
+                    for i in $(seq 1 30); do
+                        if curl -s http://127.0.0.1:5000/ >/dev/null 2>&1; then
+                        break
+                        fi
+                        sleep 2
+                        done
+                        
+                    echo "Ejecutando JMeter 5.6.3"
+                    /opt/jmeter/bin/jmeter -n \
+                    -t test/jmeter/flask.jmx \
+                    -l test/jmeter/result.jtl
+                    
+                    echo "Comprobando errores reales en el JTL"
+                    ERRORS=$(awk -F',' 'NR>1 && $9=="false" {c++} END {print c+0}' test/jmeter/result.jtl)
+                    echo "Errores detectados: $ERRORS"
+
+                    if [ "$ERRORS" -gt 0 ]; then
+                        echo "Hay errores en JMeter"
+                        exit 1
+                    fi
+                '''
+                
+            perfReport sourceDataFiles: 'test/jmeter/result.jtl'
+        }
+        post {
+            always {
+                sh '''
+                    echo "Deteniendo Flask"
+                    pkill -f "python3 app.py" || true
+                '''
+            }
+        }
+    }
+        stage('Rest') {
+            agent { label 'agent1' }
+            steps {
+                unstash 'codigo'
+                sh '''
+                    echo "Ejecutando Flask y Wiremock"
+                    whoami && hostname && echo $WORKSPACE
+                    export FLASK_APP=app/api.py
+                    export FLASK_ENV=development
+                    nohup python3 -m flask --app app/api.py run &
+                    nohup /usr/bin/java -jar /opt/wiremock-standalone.jar --port 9090 --root-dir test/wiremock/ &
+                    sleep 20
+                    pytest --junitxml=result-rest.xml test/rest
+                '''
+                    }
+                }
+            }
+        }
+            stage('Coverage') {
             agent { label 'agent2' }
             steps {
                 unstash 'codigo'
@@ -104,24 +165,8 @@ pipeline {
                     [metric: 'LINE', threshold: 95.0, baseline: 'PROJECT', unstable: true],
                     [metric: 'BRANCH', threshold: 80.0, baseline: 'PROJECT', unstable: false],
                     [metric: 'BRANCH', threshold: 90.0, baseline: 'PROJECT', unstable: true]
-                ]
-            )
-        }
-    }
-        stage('Rest') {
-            agent { label 'agent2' }
-            steps {
-                unstash 'codigo'
-                sh '''
-                    echo "Ejecutando Flask y Wiremock"
-                    whoami && hostname && echo $WORKSPACE
-                    export FLASK_APP=app/api.py
-                    export FLASK_ENV=development
-                    nohup python3 -m flask --app app/api.py run &
-                    nohup /usr/bin/java -jar /opt/wiremock-standalone.jar --port 9090 --root-dir test/wiremock/ &
-                    sleep 20
-                    pytest --junitxml=result-rest.xml test/rest
-                '''
+                    ]
+                )
             }
         }
     }
